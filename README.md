@@ -1,56 +1,87 @@
-# build nanoGPT
+# Building nanoGPT — my course project
 
-This repo holds the from-scratch reproduction of [nanoGPT](https://github.com/karpathy/nanoGPT/tree/master). The git commits were specifically kept step by step and clean so that one can easily walk through the git commit history to see it built slowly. Additionally, there is an accompanying [video lecture on YouTube](https://youtu.be/l8pRSuU81PU) where you can see me introduce each commit and explain the pieces along the way.
+A learning portfolio project from my walkthrough of Andrej Karpathy’s **[Let's reproduce GPT-2 (124M)](https://youtu.be/l8pRSuU81PU)** lecture. I completed the walkthrough and use this repository to demonstrate the concepts covered: building a decoder-only Transformer, training it to predict the next token, and evaluating its outputs.
 
-We basically start from an empty file and work our way to a reproduction of the [GPT-2](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) (124M) model. If you have more patience or money, the code can also reproduce the [GPT-3](https://arxiv.org/pdf/2005.14165) models. While the GPT-2 (124M) model probably trained for quite some time back in the day (2019, ~5 years ago), today, reproducing it is a matter of ~1hr and ~$10. You'll need a cloud GPU box if you don't have enough, for that I recommend [Lambda](https://lambdalabs.com).
+The core implementation comes from **[karpathy/build-nanogpt](https://github.com/karpathy/build-nanogpt)**. This is a course-based learning project. The original commit history is retained; those upstream commits belong to their original authors.
 
-Note that GPT-2 and GPT-3 and both simple language models, trained on internet documents, and all they do is "dream" internet documents. So this repo/video this does not cover Chat finetuning, and you can't talk to it like you can talk to ChatGPT. The finetuning process (while quite simple conceptually - SFT is just about swapping out the dataset and continuing the training) comes after this part and will be covered at a later time. For now this is the kind of stuff that the 124M model says if you prompt it with "Hello, I'm a language model," after 10B tokens of training:
+## Try the local demo
 
-```
-Hello, I'm a language model, and my goal is to make English as easy and fun as possible for everyone, and to find out the different grammar rules
-Hello, I'm a language model, so the next time I go, I'll just say, I like this stuff.
-Hello, I'm a language model, and the question is, what should I do if I want to be a teacher?
-Hello, I'm a language model, and I'm an English person. In languages, "speak" is really speaking. Because for most people, there's
-```
+Train a small model on the included Shakespeare text. This uses the course’s GPT architecture with a character vocabulary and a much smaller configuration, so it can run on a CPU without downloading a dataset or pretrained weights.
 
-And after 40B tokens of training:
-
-```
-Hello, I'm a language model, a model of computer science, and it's a way (in mathematics) to program computer programs to do things like write
-Hello, I'm a language model, not a human. This means that I believe in my language model, as I have no experience with it yet.
-Hello, I'm a language model, but I'm talking about data. You've got to create an array of data: you've got to create that.
-Hello, I'm a language model, and all of this is about modeling and learning Python. I'm very good in syntax, however I struggle with Python due
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python demo.py
 ```
 
-Lol. Anyway, once the video comes out, this will also be a place for FAQ, and a place for fixes and errata, of which I am sure there will be a number :)
+Python 3.10 or later is required. Dependency installation requires internet access; the demo itself runs offline. On Windows, activate with `.venv\Scripts\activate`.
 
-For discussions and questions, please use [Discussions tab](https://github.com/karpathy/build-nanogpt/discussions), and for faster communication, have a look at my [Zero To Hero Discord](https://discord.gg/3zy8kqD9Cp), channel **#nanoGPT**:
+For a quick check or a longer experiment:
 
-[![](https://dcbadge.vercel.app/api/server/3zy8kqD9Cp?compact=true&style=flat)](https://discord.gg/3zy8kqD9Cp)
+```bash
+python demo.py --steps 10 --generate 100
+python demo.py --steps 1000 --device mps
+python demo.py --steps 1000 --device cuda
+```
 
-## Video
+The default device is CPU. Choose `mps` for a supported Apple Silicon setup or `cuda` for an available NVIDIA GPU. Runtime depends on hardware.
 
-[Let's reproduce GPT-2 (124M) YouTube lecture](https://youtu.be/l8pRSuU81PU)
+The demo prints training and held-out validation loss, then samples text from the prompt `ROMEO:`. It saves configuration, metrics, seed, and generated text to `outputs/demo.json`. Early samples will be rough: the goal is to show a working training pipeline and measurable learning.
 
-## Errata
+## Recorded experiment
 
-Minor cleanup, we forgot to delete `register_buffer` of the bias once we switched to flash attention, fixed with a recent PR.
+A checked-in [run record](docs/demo-run.json) contains the actual output of:
 
-Earlier version of PyTorch may have difficulty converting from uint16 to long. Inside `load_tokens`, we added `npt = npt.astype(np.int32)` to use numpy to convert uint16 to int32 before converting to torch tensor and then converting to long.
+```bash
+python demo.py --steps 200 --output docs/demo-run.json
+```
 
-The `torch.autocast` function takes an arg `device_type`, to which I tried to stubbornly just pass `device` hoping it works ok, but PyTorch actually really wants just the type and creates errors in some version of PyTorch. So we want e.g. the device `cuda:3` to get stripped to `cuda`. Currently, device `mps` (Apple Silicon) would become `device_type` CPU, I'm not 100% sure this is the intended PyTorch way.
+The recorded CPU run uses **108,352 parameters**. Over 200 steps, training loss fell from **4.2007 to 2.5805** and validation loss from **4.1922 to 2.5486** (cross-entropy in nats per character). Generated text remains rough.
 
-Confusingly, `model.require_backward_grad_sync` is actually used by both the forward and backward pass. Moved up the line so that it also gets applied to the forward pass. 
+This is a small character-level experiment, separate from the course’s 124M-parameter GPT-2 setup. Its loss values and generated text should not be compared directly with GPT-2 or HellaSwag results. The record includes the PyTorch version and device; exact results may vary across hardware and library versions.
 
-## Prod
+## What this project covers
 
-For more production-grade runs that are very similar to nanoGPT, I recommend looking at the following repos:
+| Concept | Where to look | What to explain |
+| --- | --- | --- |
+| Token and position embeddings | `GPT` in `train_gpt2.py` | How token identity and sequence position enter the model |
+| Causal multi-head attention | `CausalSelfAttention` | Why a token cannot attend to future tokens |
+| Transformer blocks | `Block`, `MLP` | How residual connections, layer normalization, and feed-forward layers fit together |
+| Next-token prediction | `GPT.forward`, `demo.py` | How shifted targets and cross-entropy define the training task |
+| Optimization | `configure_optimizers`, course training loop | AdamW, weight decay, clipping, accumulation, and learning-rate scheduling |
+| Evaluation and sampling | `demo.py`, `hellaswag.py` | Why validation loss, multiple-choice accuracy, and sample quality measure different things |
+| Scaling training | course training loop | How data shards and distributed data parallelism support larger runs |
 
-- [litGPT](https://github.com/Lightning-AI/litgpt)
-- [TinyLlama](https://github.com/jzhang38/TinyLlama)
+See the [learning guide](docs/LEARNING_GUIDE.md) for a short explanation and suggested experiments.
 
-## FAQ
+## My additions
 
-## License
+- This portfolio README and a guide to the concepts covered in the course.
+- `demo.py`: a configurable laptop demo with training, validation, text sampling, and a saved run record.
+- An import guard and deferred course-only imports in `train_gpt2.py`, allowing the demo to reuse `GPT` without launching the full training job.
+- Dependency files and ignore rules for generated data, logs, and checkpoints.
 
-MIT
+## Repository map
+
+| File | Purpose |
+| --- | --- |
+| `demo.py` | Small local training and generation demo |
+| `train_gpt2.py` | Upstream GPT architecture and full course training loop |
+| `input.txt` | Included Shakespeare text used by the local demo |
+| `fineweb.py` | Course FineWeb-Edu download and tokenization script |
+| `hellaswag.py` | Course multiple-choice evaluation utility |
+| `play.ipynb` | Upstream experiment notebook |
+| `docs/UPSTREAM_README.md` | Original README, including upstream examples and errata |
+
+## Full course workflow
+
+Install the additional dependencies with `python -m pip install -r requirements-course.txt`.
+
+The original workflow uses `python fineweb.py` to prepare the 10B-token FineWeb-Edu sample, followed by `python train_gpt2.py` (or `torchrun --standalone --nproc_per_node=8 train_gpt2.py` for eight CUDA GPUs). Read the script settings before running: this downloads a large dataset and launches the full training configuration. It is separate from the lightweight demo above.
+
+The original README’s sample generations and benchmark discussion describe upstream work. This repository does not claim that I independently trained GPT-2 at that scale or achieved those results. Completing a public lecture walkthrough is self-directed study, not a formal course certificate.
+
+## Acknowledgments
+
+Credit to Andrej Karpathy and the upstream contributors for the implementation and teaching material. The upstream README states MIT as the code license; its original text is preserved in [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md). Dataset and dependency terms belong to their respective sources.

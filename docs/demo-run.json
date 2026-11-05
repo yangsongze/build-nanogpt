@@ -1,0 +1,46 @@
+{
+  "description": "Tiny character-level course demo; not a GPT-2 reproduction benchmark.",
+  "torch_version": "2.11.0",
+  "device": "cpu",
+  "seed": 1337,
+  "steps": 200,
+  "batch_size": 8,
+  "learning_rate": 0.001,
+  "config": {
+    "block_size": 64,
+    "vocab_size": 65,
+    "n_layer": 2,
+    "n_head": 2,
+    "n_embd": 64
+  },
+  "parameters": 108352,
+  "metrics": [
+    {
+      "step": 0,
+      "train": 4.200690269470215,
+      "val": 4.192158555984497
+    },
+    {
+      "step": 50,
+      "train": 2.9147202253341673,
+      "val": 2.8828272104263304
+    },
+    {
+      "step": 100,
+      "train": 2.701276445388794,
+      "val": 2.67844021320343
+    },
+    {
+      "step": 150,
+      "train": 2.6274975299835206,
+      "val": 2.583674764633179
+    },
+    {
+      "step": 200,
+      "train": 2.5805466890335085,
+      "val": 2.5485549688339235
+    }
+  ],
+  "prompt": "ROMEO:",
+  "sample": "ROMEO:\nId tund whiden;\nBtoyed.\nKI the blaur che lnle e ipoomay moure, o T\nELoratou het e-\nTCQI nert be wist. s' ofrghenores. thiautwemar',\nIs than G:\n\nhoqtevenaq f, ! iwit wedhicker d: basee adour ge isese tomy car\nMerg. skonofeanf varan, y, ts t, toerics h, furalaro e l telay baralashassereede wor tur:.\n"
+}
